@@ -386,6 +386,7 @@
     .logo-text{ font-size:16px; }
     nav{ gap:20px; }
     nav a{ font-size:11px; }
+    .vr-cell{ cursor:pointer; }
     .footer-grid{ grid-template-columns:1fr 1fr; gap:30px; }
     .vr-grid{ grid-template-columns:repeat(2,1fr); }
     .docs-shell{ grid-template-columns:1fr; }
@@ -629,35 +630,41 @@ const viewer = Meridian.mount('#panoStage', {<br>
 <div class="cursor-circle" id="cursorCircle"></div>
 <div class="cursor-dot" id="cursorDot"></div>
 <script>
-/* ---------------- CUSTOM CURSOR ---------------- */
-const cursorCircle = document.getElementById('cursorCircle');
-const cursorDot = document.getElementById('cursorDot');
-let cursorX = 0, cursorY = 0;
-let circleX = 0, circleY = 0;
+/* ---------------- CUSTOM CURSOR (desktop only) ---------------- */
+const isFinePointer = window.matchMedia('(pointer:fine)').matches;
+if(isFinePointer){
+  const cursorCircle = document.getElementById('cursorCircle');
+  const cursorDot = document.getElementById('cursorDot');
+  let cursorX = 0, cursorY = 0;
+  let circleX = 0, circleY = 0;
 
-document.addEventListener('pointermove', e=>{
-  cursorX = e.clientX;
-  cursorY = e.clientY;
-  cursorDot.style.left = cursorX + 'px';
-  cursorDot.style.top = cursorY + 'px';
-});
+  document.addEventListener('pointermove', e=>{
+    cursorX = e.clientX;
+    cursorY = e.clientY;
+    cursorDot.style.left = cursorX + 'px';
+    cursorDot.style.top = cursorY + 'px';
+  });
 
-const cursorTargets = ['#panoStage', '.modal-stage', '.vr-cell'];
-cursorTargets.forEach(sel=>{
-  const el = document.querySelector(sel);
-  if(!el) return;
-  el.addEventListener('mouseenter', ()=> { cursorCircle.classList.add('show'); cursorDot.classList.add('show'); });
-  el.addEventListener('mouseleave', ()=> { cursorCircle.classList.remove('show'); cursorDot.classList.remove('show'); });
-});
+  const cursorTargets = ['#panoStage', '.modal-stage', '.vr-cell'];
+  cursorTargets.forEach(sel=>{
+    const el = document.querySelector(sel);
+    if(!el) return;
+    el.addEventListener('mouseenter', ()=> { cursorCircle.classList.add('show'); cursorDot.classList.add('show'); });
+    el.addEventListener('mouseleave', ()=> { cursorCircle.classList.remove('show'); cursorDot.classList.remove('show'); });
+  });
 
-function cursorAnim(){
-  circleX += (cursorX - circleX) * 0.15;
-  circleY += (cursorY - circleY) * 0.15;
-  cursorCircle.style.left = circleX + 'px';
-  cursorCircle.style.top = circleY + 'px';
-  requestAnimationFrame(cursorAnim);
+  function cursorAnim(){
+    circleX += (cursorX - circleX) * 0.15;
+    circleY += (cursorY - circleY) * 0.15;
+    cursorCircle.style.left = circleX + 'px';
+    cursorCircle.style.top = circleY + 'px';
+    requestAnimationFrame(cursorAnim);
+  }
+  cursorAnim();
+} else {
+  document.getElementById('cursorCircle').remove();
+  document.getElementById('cursorDot').remove();
 }
-cursorAnim();
 
 /* ---------------- LOADER ---------------- */
 (function(){
