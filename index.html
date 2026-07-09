@@ -171,7 +171,7 @@
   }
   .vr-cell{
     position:relative; aspect-ratio:4/5; background:var(--paper);
-    overflow:hidden; transition:transform .5s var(--ease);
+    overflow:hidden; cursor:pointer; transition:transform .5s var(--ease);
   }
   .vr-cell img{
     position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
@@ -195,7 +195,7 @@
   .vr-cell:hover{ transform: translateZ(30px) rotateX(2deg) rotateY(-2deg); }
   .vr-cell:hover img{ transform:scale(1.12); filter:saturate(1) brightness(.9) contrast(1.05); }
 
-  /* ---------- VIEWER (drag-pan pseudo-360) ---------- */
+  /* ---------- VIEWER (auto-360) ---------- */
   .viewer-wrap{ margin-top:70px; border:1px solid var(--line); padding:2px; }
   .viewer-bar{
     display:flex; justify-content:space-between; align-items:center; padding:16px 20px;
@@ -205,10 +205,10 @@
   .viewer-bar .dot{ width:6px; height:6px; border-radius:50%; background:var(--brass); display:inline-block; margin-right:8px; }
   #panoStage{
     width:100%; height:460px; overflow:hidden; position:relative;
-    background:var(--paper); touch-action:none;
+    background:var(--paper);
   }
   #panoLayer{
-    position:absolute; top:0; left:0; width:150%; height:300%;
+    position:absolute; top:0; left:0; width:200%; height:300%;
     background-repeat:repeat; background-size:auto 100%;
     background-position:0 0;
     filter:saturate(.9) brightness(.82) contrast(1.05);
@@ -219,28 +219,6 @@
     background:linear-gradient(180deg, rgba(11,12,13,.55), transparent 12%, transparent 88%, rgba(11,12,13,.55));
   }
   .viewer-hint{ padding:14px 20px; font-size:12px; color:var(--slate); border-top:1px solid var(--line); }
-
-  /* ---------- CURSOR ---------- */
-  .cursor-circle{
-    position:fixed; z-index:9999; pointer-events:none;
-    width:48px; height:48px; border-radius:50%;
-    border:1.5px solid rgba(176,141,87,0.6);
-    background:rgba(176,141,87,0.08);
-    transform:translate(-50%,-50%) scale(0);
-    transition:transform .2s var(--ease), opacity .2s var(--ease);
-    opacity:0; will-change:transform;
-    backdrop-filter:blur(2px);
-  }
-  .cursor-circle.show{ transform:translate(-50%,-50%) scale(1); opacity:1; }
-  .cursor-dot{
-    position:fixed; z-index:9999; pointer-events:none;
-    width:4px; height:4px; border-radius:50%;
-    background:var(--brass);
-    transform:translate(-50%,-50%);
-    transition:opacity .2s var(--ease);
-    opacity:0;
-  }
-  .cursor-dot.show{ opacity:1; }
 
   /* ---------- PROCESS ---------- */
   .process-list{ display:flex; flex-direction:column; }
@@ -294,10 +272,9 @@
   #vrModal.open{ opacity:1; visibility:visible; pointer-events:auto; }
   .modal-stage{
     width:100%; height:100%; position:relative; overflow:hidden;
-    touch-action:none;
   }
   #modalLayer{
-    position:absolute; top:0; left:0; width:150%; height:300%;
+    position:absolute; top:0; left:0; width:200%; height:300%;
     background-repeat:repeat; background-size:auto 100%;
     background-position:0 0;
     filter:saturate(.92) brightness(.78) contrast(1.08);
@@ -380,11 +357,6 @@
   .footer-bottom a{ color:var(--slate); transition:color .3s; }
   .footer-bottom a:hover{ color:var(--bone); }
 
-  @media(pointer:fine){
-    #panoStage, .modal-stage{ cursor:none; }
-    .vr-cell{ cursor:pointer; }
-  }
-
   @media(max-width:820px){
     header{ padding:16px 5vw; }
     .logo-img{ width:36px; height:36px; }
@@ -464,10 +436,10 @@
   <div class="viewer-wrap">
     <div class="viewer-bar">
       <span><span class="dot"></span><span id="viewerName">CORTEN PAVILION</span></span>
-      <span>360° · DRAG UP/DOWN</span>
+      <span>LIVE 360°</span>
     </div>
     <div id="panoStage"><div id="panoLayer"></div></div>
-    <div class="viewer-hint">Move mouse or touch &amp; drag — the 360° view follows you.</div>
+    <div class="viewer-hint">Live 360° — the view moves on its own.</div>
   </div>
 </section>
 
@@ -626,50 +598,11 @@ const viewer = Meridian.mount('#panoStage', {<br>
     </div>
     <div class="modal-bottombar">
       <div class="modal-nav-dots" id="modalDots"></div>
-      <div class="modal-hint">⟳ TOUCH &amp; DRAG TO EXPLORE</div>
+      <div class="modal-hint">LIVE 360°</div>
     </div>
   </div>
 </div>
-
-<div class="cursor-circle" id="cursorCircle"></div>
-<div class="cursor-dot" id="cursorDot"></div>
 <script>
-/* ---------------- CUSTOM CURSOR (desktop only) ---------------- */
-const isFinePointer = window.matchMedia('(pointer:fine)').matches;
-if(isFinePointer){
-  const cursorCircle = document.getElementById('cursorCircle');
-  const cursorDot = document.getElementById('cursorDot');
-  let cursorX = 0, cursorY = 0;
-  let circleX = 0, circleY = 0;
-
-  document.addEventListener('pointermove', e=>{
-    cursorX = e.clientX;
-    cursorY = e.clientY;
-    cursorDot.style.left = cursorX + 'px';
-    cursorDot.style.top = cursorY + 'px';
-  });
-
-  const cursorTargets = ['#panoStage', '.modal-stage', '.vr-cell'];
-  cursorTargets.forEach(sel=>{
-    const el = document.querySelector(sel);
-    if(!el) return;
-    el.addEventListener('mouseenter', ()=> { cursorCircle.classList.add('show'); cursorDot.classList.add('show'); });
-    el.addEventListener('mouseleave', ()=> { cursorCircle.classList.remove('show'); cursorDot.classList.remove('show'); });
-  });
-
-  function cursorAnim(){
-    circleX += (cursorX - circleX) * 0.15;
-    circleY += (cursorY - circleY) * 0.15;
-    cursorCircle.style.left = circleX + 'px';
-    cursorCircle.style.top = circleY + 'px';
-    requestAnimationFrame(cursorAnim);
-  }
-  cursorAnim();
-} else {
-  document.getElementById('cursorCircle').remove();
-  document.getElementById('cursorDot').remove();
-}
-
 /* ---------------- LOADER ---------------- */
 (function(){
   const fill = document.getElementById('loaderFill');
@@ -752,7 +685,6 @@ function setModalScene(id){
   modalScene = s;
   modalName.textContent = s.name;
   modalLayer.style.backgroundImage = `url('${s.img}')`;
-  modalLayer.style.transform = 'translate(0,0)';
   [...modalDots.children].forEach(d=> d.classList.toggle('active', d.dataset.id===id));
 }
 
@@ -770,24 +702,19 @@ function closeModal(){
 modalClose.addEventListener('click', closeModal);
 window.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
 
-function updateModalPos(e){
-  const rect = modalStage.getBoundingClientRect();
-  const rx = (e.clientX - rect.left) / rect.width;
-  const ry = (e.clientY - rect.top) / rect.height;
-  const mx = Math.max(0, Math.min(1, rx));
-  const my = Math.max(0, Math.min(1, ry));
-  const ox = mx * (modalLayer.offsetWidth - rect.width);
-  const oy = my * (modalLayer.offsetHeight - rect.height);
-  modalLayer.style.transform = `translate(${-ox}px, ${-oy}px)`;
+let modalTime = 0;
+function modalAuto(){
+  if(modalOpenFlag){
+    modalTime += 0.008;
+    const ox = Math.sin(modalTime * 0.7) * (modalLayer.offsetWidth - modalStage.clientWidth) * 0.45;
+    const oy = Math.sin(modalTime * 0.4) * (modalLayer.offsetHeight - modalStage.clientHeight) * 0.45;
+    modalLayer.style.transform = `translate(${-ox}px, ${-oy}px)`;
+  }
+  requestAnimationFrame(modalAuto);
 }
+modalAuto();
 
-modalStage.addEventListener('pointerdown', e => {
-  modalStage.setPointerCapture(e.pointerId);
-  updateModalPos(e);
-});
-modalStage.addEventListener('pointermove', updateModalPos);
-
-/* ---------------- VIEWER (drag-pan pseudo-360) ---------------- */
+/* ---------------- VIEWER (auto-360) ---------------- */
 const panoStage = document.getElementById('panoStage');
 const panoLayer = document.getElementById('panoLayer');
 const viewerName = document.getElementById('viewerName');
@@ -799,25 +726,17 @@ function loadIntoViewer(id){
   currentScene = s;
   viewerName.textContent = s.name.toUpperCase();
   panoLayer.style.backgroundImage = `url('${s.img}')`;
-  panoLayer.style.transform = 'translate(0,0)';
 }
 
-function updatePanoPos(e){
-  const rect = panoStage.getBoundingClientRect();
-  const rx = (e.clientX - rect.left) / rect.width;
-  const ry = (e.clientY - rect.top) / rect.height;
-  const mx = Math.max(0, Math.min(1, rx));
-  const my = Math.max(0, Math.min(1, ry));
-  const ox = mx * (panoLayer.offsetWidth - rect.width);
-  const oy = my * (panoLayer.offsetHeight - rect.height);
+let panoTime = 0;
+function panoAuto(){
+  panoTime += 0.006;
+  const ox = Math.sin(panoTime * 0.8) * (panoLayer.offsetWidth - panoStage.clientWidth) * 0.45;
+  const oy = Math.sin(panoTime * 0.5) * (panoLayer.offsetHeight - panoStage.clientHeight) * 0.45;
   panoLayer.style.transform = `translate(${-ox}px, ${-oy}px)`;
+  requestAnimationFrame(panoAuto);
 }
-
-panoStage.addEventListener('pointerdown', e => {
-  panoStage.setPointerCapture(e.pointerId);
-  updatePanoPos(e);
-});
-panoStage.addEventListener('pointermove', updatePanoPos);
+panoAuto();
 
 loadIntoViewer(scenes[0].id);
 </script>
