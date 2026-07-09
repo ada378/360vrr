@@ -36,6 +36,15 @@
     transition: opacity .9s var(--ease), visibility .9s var(--ease);
   }
   #loader.hide{ opacity:0; visibility:hidden; pointer-events:none; }
+  .loader-logo{
+    width:72px; height:72px; border-radius:50%; object-fit:cover;
+    border:2px solid var(--brass); box-shadow:0 0 30px rgba(176,141,87,0.2);
+    animation:loaderPulse 2s var(--ease) infinite;
+  }
+  @keyframes loaderPulse{
+    0%,100%{ box-shadow:0 0 20px rgba(176,141,87,0.15); transform:scale(1); }
+    50%{ box-shadow:0 0 40px rgba(176,141,87,0.3); transform:scale(1.04); }
+  }
   .blueprint{ width:220px; height:140px; position:relative; }
   .blueprint svg{ width:100%; height:100%; overflow:visible; }
   .blueprint path{
@@ -162,8 +171,7 @@
   }
   .vr-cell{
     position:relative; aspect-ratio:4/5; background:var(--paper);
-    overflow:hidden; cursor:pointer; transform-style:preserve-3d;
-    transition:transform .5s var(--ease);
+    overflow:hidden; cursor:none; transition:transform .5s var(--ease);
   }
   .vr-cell img{
     position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
@@ -197,20 +205,42 @@
   .viewer-bar .dot{ width:6px; height:6px; border-radius:50%; background:var(--brass); display:inline-block; margin-right:8px; }
   #panoStage{
     width:100%; height:460px; overflow:hidden; position:relative;
-    background:var(--paper); cursor:grab;
+    background:var(--paper); cursor:none;
   }
-  #panoStage:active{ cursor:grabbing; }
   #panoLayer{
-    position:absolute; top:0; left:0; height:100%; width:300%;
-    background-repeat:repeat-x; background-size:auto 100%;
-    background-position:0 center;
+    position:absolute; top:0; left:0; width:150%; height:300%;
+    background-repeat:repeat; background-size:auto 100%;
+    background-position:0 0;
     filter:saturate(.9) brightness(.82) contrast(1.05);
+    pointer-events:none;
   }
   #panoStage::after{
     content:''; position:absolute; inset:0; pointer-events:none;
-    background:linear-gradient(90deg, rgba(11,12,13,.55), transparent 12%, transparent 88%, rgba(11,12,13,.55));
+    background:linear-gradient(180deg, rgba(11,12,13,.55), transparent 12%, transparent 88%, rgba(11,12,13,.55));
   }
   .viewer-hint{ padding:14px 20px; font-size:12px; color:var(--slate); border-top:1px solid var(--line); }
+
+  /* ---------- CURSOR ---------- */
+  .cursor-circle{
+    position:fixed; z-index:9999; pointer-events:none;
+    width:48px; height:48px; border-radius:50%;
+    border:1.5px solid rgba(176,141,87,0.6);
+    background:rgba(176,141,87,0.08);
+    transform:translate(-50%,-50%) scale(0);
+    transition:transform .2s var(--ease), opacity .2s var(--ease);
+    opacity:0; will-change:transform;
+    backdrop-filter:blur(2px);
+  }
+  .cursor-circle.show{ transform:translate(-50%,-50%) scale(1); opacity:1; }
+  .cursor-dot{
+    position:fixed; z-index:9999; pointer-events:none;
+    width:4px; height:4px; border-radius:50%;
+    background:var(--brass);
+    transform:translate(-50%,-50%);
+    transition:opacity .2s var(--ease);
+    opacity:0;
+  }
+  .cursor-dot.show{ opacity:1; }
 
   /* ---------- PROCESS ---------- */
   .process-list{ display:flex; flex-direction:column; }
@@ -264,14 +294,14 @@
   #vrModal.open{ opacity:1; visibility:visible; pointer-events:auto; }
   .modal-stage{
     width:100%; height:100%; position:relative; overflow:hidden;
-    cursor:grab;
+    cursor:none;
   }
-  .modal-stage:active{ cursor:grabbing; }
   #modalLayer{
-    position:absolute; top:0; left:0; height:100%; width:300%;
-    background-repeat:repeat-x; background-size:auto 100%;
-    background-position:0 center;
+    position:absolute; top:0; left:0; width:150%; height:300%;
+    background-repeat:repeat; background-size:auto 100%;
+    background-position:0 0;
     filter:saturate(.92) brightness(.78) contrast(1.08);
+    pointer-events:none;
   }
   .modal-vignette{
     position:absolute; inset:0; pointer-events:none; z-index:2;
@@ -378,6 +408,7 @@
 <body>
 
 <div id="loader">
+  <img src="images/logo.jpeg" alt="Meridian" class="loader-logo">
   <div class="blueprint">
     <svg viewBox="0 0 220 140">
       <path class="p1" d="M10,120 L10,30 L70,10 L130,30 L130,120 M10,60 L130,60 M70,10 L70,120" />
@@ -428,10 +459,10 @@
   <div class="viewer-wrap">
     <div class="viewer-bar">
       <span><span class="dot"></span><span id="viewerName">CORTEN PAVILION</span></span>
-      <span>360° · DRAG TO ORBIT</span>
+      <span>360° · DRAG UP/DOWN</span>
     </div>
     <div id="panoStage"><div id="panoLayer"></div></div>
-    <div class="viewer-hint">Click + drag horizontally to pan around the space.</div>
+    <div class="viewer-hint">Move your cursor to look around — the view follows you.</div>
   </div>
 </section>
 
@@ -590,12 +621,44 @@ const viewer = Meridian.mount('#panoStage', {<br>
     </div>
     <div class="modal-bottombar">
       <div class="modal-nav-dots" id="modalDots"></div>
-      <div class="modal-hint">DRAG TO LOOK AROUND</div>
+      <div class="modal-hint">↕ DRAG TO EXPLORE</div>
     </div>
   </div>
 </div>
 
+<div class="cursor-circle" id="cursorCircle"></div>
+<div class="cursor-dot" id="cursorDot"></div>
 <script>
+/* ---------------- CUSTOM CURSOR ---------------- */
+const cursorCircle = document.getElementById('cursorCircle');
+const cursorDot = document.getElementById('cursorDot');
+let cursorX = 0, cursorY = 0;
+let circleX = 0, circleY = 0;
+
+document.addEventListener('pointermove', e=>{
+  cursorX = e.clientX;
+  cursorY = e.clientY;
+  cursorDot.style.left = cursorX + 'px';
+  cursorDot.style.top = cursorY + 'px';
+});
+
+const cursorTargets = ['#panoStage', '.modal-stage', '.vr-cell'];
+cursorTargets.forEach(sel=>{
+  const el = document.querySelector(sel);
+  if(!el) return;
+  el.addEventListener('mouseenter', ()=> { cursorCircle.classList.add('show'); cursorDot.classList.add('show'); });
+  el.addEventListener('mouseleave', ()=> { cursorCircle.classList.remove('show'); cursorDot.classList.remove('show'); });
+});
+
+function cursorAnim(){
+  circleX += (cursorX - circleX) * 0.15;
+  circleY += (cursorY - circleY) * 0.15;
+  cursorCircle.style.left = circleX + 'px';
+  cursorCircle.style.top = circleY + 'px';
+  requestAnimationFrame(cursorAnim);
+}
+cursorAnim();
+
 /* ---------------- LOADER ---------------- */
 (function(){
   const fill = document.getElementById('loaderFill');
@@ -652,11 +715,17 @@ const modalClose = document.getElementById('modalClose');
 const modalDots = document.getElementById('modalDots');
 
 let modalScene = scenes[0];
-let modalPosX = 0;
-let modalDragging = false;
-let modalLastX = 0;
-let modalIdle = 0.18;
 let modalOpenFlag = false;
+
+function setModalScene(id){
+  const s = scenes.find(x=>x.id===id);
+  if(!s) return;
+  modalScene = s;
+  modalName.textContent = s.name;
+  modalLayer.style.backgroundImage = `url('${s.img}')`;
+  modalLayer.style.transform = 'translate(0,0)';
+  [...modalDots.children].forEach(d=> d.classList.toggle('active', d.dataset.id===id));
+}
 
 scenes.forEach((s, i)=>{
   const dot = document.createElement('button');
@@ -672,6 +741,7 @@ function setModalScene(id){
   modalScene = s;
   modalName.textContent = s.name;
   modalLayer.style.backgroundImage = `url('${s.img}')`;
+  modalLayer.style.transform = 'translate(0,0)';
   [...modalDots.children].forEach(d=> d.classList.toggle('active', d.dataset.id===id));
 }
 
@@ -689,38 +759,23 @@ function closeModal(){
 modalClose.addEventListener('click', closeModal);
 window.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
 
-function modalTick(){
-  if(modalOpenFlag){
-    if(!modalDragging) modalPosX -= modalIdle;
-    const w = modalStage.clientWidth;
-    if(modalPosX <= -w) modalPosX += w;
-    if(modalPosX >= 0) modalPosX -= w;
-    modalLayer.style.transform = `translateX(${modalPosX}px)`;
-  }
-  requestAnimationFrame(modalTick);
-}
-modalTick();
-
-modalStage.addEventListener('pointerdown', e=>{
-  modalDragging = true; modalLastX = e.clientX; modalStage.setPointerCapture(e.pointerId);
-});
 modalStage.addEventListener('pointermove', e=>{
-  if(!modalDragging) return;
-  const dx = e.clientX - modalLastX;
-  modalPosX += dx * 1.4;
-  modalLastX = e.clientX;
+  if(!modalOpenFlag) return;
+  const rect = modalStage.getBoundingClientRect();
+  const rx = (e.clientX - rect.left) / rect.width;
+  const ry = (e.clientY - rect.top) / rect.height;
+  const mx = Math.max(0, Math.min(1, rx));
+  const my = Math.max(0, Math.min(1, ry));
+  const ox = mx * (modalLayer.offsetWidth - rect.width);
+  const oy = my * (modalLayer.offsetHeight - rect.height);
+  modalLayer.style.transform = `translate(${-ox}px, ${-oy}px)`;
 });
-window.addEventListener('pointerup', ()=> modalDragging=false);
 
 /* ---------------- VIEWER (drag-pan pseudo-360) ---------------- */
 const panoStage = document.getElementById('panoStage');
 const panoLayer = document.getElementById('panoLayer');
 const viewerName = document.getElementById('viewerName');
 let currentScene = scenes[0];
-let posX = 0;
-let dragging = false;
-let lastX = 0;
-let idleDrift = 0.12;
 
 function loadIntoViewer(id){
   const s = scenes.find(s=>s.id===id);
@@ -728,30 +783,19 @@ function loadIntoViewer(id){
   currentScene = s;
   viewerName.textContent = s.name.toUpperCase();
   panoLayer.style.backgroundImage = `url('${s.img}')`;
+  panoLayer.style.transform = 'translate(0,0)';
 }
 
-function tick(){
-  if(!dragging) posX -= idleDrift;
-  const stageWidth = panoStage.clientWidth;
-  // wrap position within one "tile" width for seamless illusion
-  const wrap = stageWidth;
-  if(posX <= -wrap) posX += wrap;
-  if(posX >= 0) posX -= wrap;
-  panoLayer.style.transform = `translateX(${posX}px)`;
-  requestAnimationFrame(tick);
-}
-tick();
-
-panoStage.addEventListener('pointerdown', e=>{
-  dragging = true; lastX = e.clientX; panoStage.setPointerCapture(e.pointerId);
-});
 panoStage.addEventListener('pointermove', e=>{
-  if(!dragging) return;
-  const dx = e.clientX - lastX;
-  posX += dx;
-  lastX = e.clientX;
+  const rect = panoStage.getBoundingClientRect();
+  const rx = (e.clientX - rect.left) / rect.width;
+  const ry = (e.clientY - rect.top) / rect.height;
+  const mx = Math.max(0, Math.min(1, rx));
+  const my = Math.max(0, Math.min(1, ry));
+  const ox = mx * (panoLayer.offsetWidth - rect.width);
+  const oy = my * (panoLayer.offsetHeight - rect.height);
+  panoLayer.style.transform = `translate(${-ox}px, ${-oy}px)`;
 });
-window.addEventListener('pointerup', ()=> dragging=false);
 
 loadIntoViewer(scenes[0].id);
 </script>
